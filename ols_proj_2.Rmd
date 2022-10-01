@@ -1,0 +1,165 @@
+---
+title: "Untitled"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, message=FALSE}
+library(dplyr)
+library(ggplot2)
+library(data.table)
+library(skimr)
+library(VIM)
+library(GGally)
+library(leaps)
+library(tidyverse)
+library(reshape2)
+library(gclus)
+library(ggpubr)
+library(caret)
+```
+```{r}
+cancer_df <- read.csv("cancer_reg.csv")
+cancer_df <- cancer_df%>% mutate(Geography = as.factor(Geography), 
+                                     binnedInc = as.factor(binnedInc))
+cancer_df %>% skim()
+```
+missing data
+```{r}
+aggr(cancer_df)
+```
+-3 attributes, namely PctPrivateCoverageAlone, PctEmployed16_Over & 
+PctSomeCol18_24 have missing data for some counties. Those variables are 
+dropped, with justification being that the relatively high level of 
+correlation observed between these and other ‘complete’ attributes will 
+be sufficient to capture the variation that these variables might have 
+produced in the output.
+
+-the ‘binnedInc’ has been recast into a categorical variable, 
+with 10 categories, each one corresponding to one decile.
+
+-The variable 'AvgHouseholdSize' has around 61 entries/observations less 
+than 0.1, which is an impossibility as the household size has to start at 1, 
+suggesting some error in the process of data aggregation. It’s likely that 
+these anomalous values might have to be multiplied by 100.
+
+-The ‘MedianAge’ attribute has around entries for 30 counties listed with 
+abnormally high (>300) values. These errors have been corrected using the 
+average of MedianAgeMale & MedianAgeFemale values.
+
+
+```{r}
+cancer_df <- cancer_df %>% mutate(AvgHouseholdSize = ifelse(AvgHouseholdSize<0.1, AvgHouseholdSize*100, AvgHouseholdSize))
+```
+```{r}
+cancer_df<- cancer_df %>% select(-PctPrivateCoverageAlone, -PctEmployed16_Over, -PctSomeCol18_24, -Geography, -binnedInc)
+```
+
+Clustered Correlation heatmap of the 29 numeric variables, after the above corrections/modifications, with the resulting correlation values rounded,
+is displayed below :
+
+```{r, fig.width = 18, fig.height=18}
+library(ggcorrplot)
+cormat <- cor(cancer_df %>% select(-Geography, -binnedInc))
+ggcorrplot(cormat, hc.order = TRUE, outline.col = "white", tl.cex = 14, colors = c("#6D9EC1", "white", "#E46726"), lab=TRUE, digits=2)
+```
+
+```{r, echo=FALSE}
+library(dplyr)
+library(ggplot2)
+ggplot()+
+  geom_histogram(mapping=aes(cancer_df$MedianAgeMale),binwidth=1,fill=alpha('#C3D7A4',0.5),color='white')+
+  geom_histogram(mapping=aes(cancer_df$MedianAgeFemale),binwidth=1,fill=alpha("#F4EDCA",0.2),color='black')
+```
+
+
+```{r, echo=FALSE}
+ggplot(cancer_df)+geom_point(mapping=aes(PctMarriedHouseholds,PercentMarried), size=0.5, color='#D55E00')
+
+```
+```{r, echo=FALSE}
+ggplot(cancer_df)+geom_point(mapping=aes(PctEmpPrivCoverage,PctPrivateCoverage), size=0.5, color='yellow4')
+
+```
+```{r, echo=FALSE}
+ggplot(cancer_df)+geom_point(mapping=aes(PctPublicCoverageAlone,PctPublicCoverage), size=0.5, color='yellow4')
+
+```
+```{r}
+ggplot(cancer_df)+geom_point(mapping=aes(log(popEst2015), log(avgAnnCount)), size=0.1, color='#009E73')
+```
+```{r}
+ggplot(cancer_df)+geom_point(mapping=aes(log(popEst2015), log(avgDeathsPerYear)), size=0.1, color='#009E73')
+```
+```{r}
+ggplot(cancer_df)+geom_point(mapping=aes(incidenceRate, TARGET_deathRate), size=0.1, color='#009E73')
+```
+
+```{r}
+cancer_df_mod<- cancer_df %>% select(-MedianAgeMale, -MedianAgeFemale, -PctMarriedHouseholds, -PctEmpPrivCoverage, -avgAnnCount, -avgDeathsPerYear, -PctPublicCoverage)
+```
+```{r}
+full_fit <- lm(TARGET_deathRate ~ ., data = cancer_df_mod)
+summary(full_fit)
+```
+```{r}
+birthy<-c("TARGET_deathRate",
+"povertyPercent",
+"medIncome",
+"popEst2015",
+"MedianAge",
+"PctPublicCoverageAlone")
+
+GGally::ggpairs(cancer_df[,birthy])
+```
+
+```{r}
+ggplot(cancer_df)+geom_point(mapping=aes(medIncome, TARGET_deathRate), size=0.1, color='goldenrod3')
+```
+```{r}
+best_subset <- regsubsets(TARGET_deathRate~., cancer_df_mod, nvmax = 15,  method = "backward")
+best_subset_summary<- summary(best_subset)
+```
+```{r}
+cpx=which.min(best_subset_summary$cp)
+bicx=which.min(best_subset_summary$bic)
+adjr2x=which.max(best_subset_summary$adjr2)
+adjr2<-ggplot()+geom_point(aes(seq_along(best_subset_summary$adjr2),
+                               best_subset_summary$adjr2))+
+  xlab("Number of variables")+ylab("Adjusted R2")+
+  geom_line(aes(seq_along(best_subset_summary$adjr2),best_subset_summary$adjr2),
+            color='darkgoldenrod3')+
+  geom_point(aes(x=adjr2x, y=best_subset_summary$adjr2[adjr2x]), color='coral2', 
+             shape = 'x', size=8)
+  
+cp<-ggplot()+geom_line(aes(x=seq_along(best_subset_summary$cp),
+                           y=best_subset_summary$cp), color='chartreuse4')+
+  xlab("Number of variables")+ylab("Cp")+
+  geom_point(aes(x=seq_along(best_subset_summary$cp),y=best_subset_summary$cp))+
+  geom_point(aes(x=cpx, y=best_subset_summary$cp[cpx]), color='coral2', shape = 'x', size=8)
+
+bic<-ggplot()+geom_line(aes(x=seq_along(best_subset_summary$bic),
+                            y=best_subset_summary$bic), color='deepskyblue3')+
+  xlab("Number of variables")+ylab("BIC")+
+  geom_point(aes(x=seq_along(best_subset_summary$bic),y=best_subset_summary$bic))+
+  geom_point(aes(x=bicx, y=best_subset_summary$bic[bicx]), color='coral2', 
+             shape = 'x', size=8)
+plotbest<-ggarrange(adjr2, cp, bic, ncol = 2, nrow = 2)
+annotate_figure(plotbest, top = text_grob("Best Subset Selection, nvmax=20", 
+               color = "darkslategrey", face = "bold", size = 15))
+```
+```{r}
+plot(best_subset, scale = "bic")
+```
+```{r}
+ggplot(cancer_df)+geom_point(mapping=aes(PctEmpPrivCoverage, TARGET_deathRate), size=0.1, color='dodgerblue3')
+```
+```{r}
+ggplot(cancer_df) +geom_boxplot(aes(y=incidenceRate),width = 1)
+boxplot(cancer_df$incidenceRate, data=cancer_df, boxwex=.9)
+```

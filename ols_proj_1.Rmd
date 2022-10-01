@@ -1,0 +1,200 @@
+---
+title: "Project"
+output: pdf_document
+geometry: margin=3cm
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+**What is the research question you wish to explore? **
+To propose/build a Ordinary Least Squares (OLS) regression model to
+bring the possibility of a relation between the cancer mortality rates (dependent variable) and several potential socio-economic & geographical predictors.
+
+**Introduction to the matter that you are examining.**
+
+
+
+*****
+**The motivation behind the chosen problem (you may cite some relevant
+literature on the topic)**
+While it may well be that disease incidence is rooted in biology, the mortality that ensues from that disease is a sociological phenomenon.
+Disease maybe random, but death can be predicted.
+This hypothesis underpins the attempts to 
+link cancer mortality rates to socio-economic factors, rather than to biological/hereditary ones. 
+The nature of socio-economic arrangements we set in place for ourselves, as a society, influences when & where an incidence might into mortality or not.
+Disenfranchised regions/communities, characterized by State neglect in terms of resource allocation & redistribution and/or populated by historically 
+
+*****
+**Describe the data set you wish to explore. This includes describing the
+observations in the data, a general description of the variables, and how the original curator of the data collected it)**
+```{r}
+cancer_df<-read.csv('cancer_reg.csv',sep = ",")
+names(cancer_df)
+```
+Each row in the data set correspond to aggregated demographic data for one particular US county.
+The data consists of 34 variables, 33 of which are continuous. 
+And the one another, the 'geography' variable, a string consisting of the name of the county and the state in which it is located, is a unique categorical variable
+and is the primary identifier/key for a given row.
+
+the dependent variable which is the focus of the OLS regression is __'TARGET_deathRate'__ of a given county identified by the variable __'Geography'__.
+
+__'TARGET_deathRate'__ is the mean per capita (100,000) lung cancer mortalities
+over the period of 2010-2016
+
+summary & sample of __'Geography'__ variable
+```{r}
+#head(cancer_df$Geography)
+for (i in c(1,9,23)){
+  print (cancer_df$Geography[i])
+}
+paste(c('no of samples/rows in dataset: ',dim(cancer_df)[1]), collapse="")
+paste(c("no of unique 'Geography' variables: ",length(unique(cancer_df$Geography))), collapse="")
+
+```
+Four of the variables, together, describe the __racial makeup__ of the county 
+as per 2013 census estimates. 
+
+these include:
+
+__'PctWhite'__:     % of county residents who identify as White
+
+__'PctBlack'__:     % of county residents who identify as Black 
+
+__'PctAsian'__:     % of county residents who identify as Asian
+
+__'PctOtherRace'__: % of residents who identify in a category which is not                             White/Black/Asian
+
+
+
+__.__
+
+__Eight__ of the variables, together, describe the aggregate __educational & employment__ details of the county residents as per 2013 census estimates. 
+
+these include:
+
+__'PctNoHS18_24'__        : % of residents ages 18-24, with highest                                    education attained: less than high school 
+
+__'PctHS18_24'__          : % of residents ages 18-24, with highest                                    education attained: high school diploma
+
+__'PctSomeCol18_24'__     : % of residents ages 18-24, with highest                                    education attained: some college
+
+__'PctBachDeg18_24'__     : % of residents ages 18-24, with highest                                    education attained: bachelor's degree
+
+__'PctHS25_Over'__        : % of residents ages 25 & over, 
+                            with highest education attained: high school diploma
+
+__'PctBachDeg25_Over'__   : % of residents ages 25 & over, 
+                            with highest education attained: bachelor's degree
+
+__'PctEmployed16_Over'__  : % of residents ages 16 & over, employed
+
+__'PctUnemployed16_Over'__: % of county residents ages 16 & over, unemployed
+
+__.__
+
+__Five__ of the variables, together, describe the aggregate __social security coverage__ details of the county residents as per 2013 census estimates.
+
+__'PctPrivateCoverage'__: % of county residents with private health coverage
+
+__'PctPrivateCoverageAlone'__: % of residents with private health coverage alone (no public assistance) 
+
+__'PctEmpPrivCoverage'__: % of residents with employee-provided private health coverage
+
+__'PctPublicCoverage'__: % of county residents with State-provided health coverage
+
+__'PctPubliceCoverageAlone'__: % of residents with government-provided health coverage alone
+__.__
+
+__Three__ variables, together, are used to capture the aggregate __economic__ standing of the county residents as per 2013 census estimates.
+
+__'medianIncome'__: Median income per county
+
+__'povertyPercent'__: Percent of populace in poverty
+
+__'binnedInc'__: Median income per capita, binned by decile
+
+__.__
+
+__Three__ variables, together, are used to capture the __social support__ makeup of the county residents as per 2013 census estimates.
+
+__'PercentMarried'__: % of county residents who are married
+
+__'PctMarriedHouseholds'__: % of married households
+
+__'AvgHouseholdSize'__: Mean household size of county
+
+__.__
+
+__Four__ variables, describe the relevant __medical__ details concerning
+incidence, mortality and testing rates, aggregated county wise, over the period of 2010-2016 
+
+__'avgAnnCount'__: : Mean number of reported cases of cancer diagnosed annually
+
+__'avgDeathsPerYear'__: Mean number of reported mortalities due to cancer
+
+__'incidenceRate'__: Mean per-capita (100,000) cancer diagoses
+
+__'studyPerCap'__: Per-capita number of cancer-related clinical trials per county
+
+__.__
+
+The remaining __Five__ variables, deal with aspects relating to population statistics, as sourced from 2013 census
+
+__'BirthRate'__: Number of live births relative to number of women in county
+
+__'popEst2015'__: Population of county (b)
+
+__'MedianAge'__: Median age of county residents (b)
+
+__'MedianAgeMale'__: Median age of male county residents (b)
+
+__'MedianAgeFemale'__: Median age of female county residents
+
+
+
+
+
+
+
+
+
+
+
+
+*****
+**Provide a summary of the data frame (glimpse function) Mention the dimensions of your data, the number of observations, and the number of variables.**
+```{r, echo=FALSE}
+library(dplyr)
+library(ggplot2)
+#glimpse(cancer_df)
+#paste(c('the dimensions of the data are: ',dim(cancer_df)), collapse=" ")
+#paste(c('the data has: ',dim(cancer_df)[1], ' rows/samples/observations & ', dim(cancer_df)[2],' attributes/variables/features'), collapse="")
+#head(cancer_df)
+ggplot()+
+  geom_histogram(mapping=aes(cancer_df$MedianAgeMale),binwidth=1,fill=alpha('#C3D7A4',0.5),color='white')+
+  geom_histogram(mapping=aes(cancer_df$MedianAgeFemale),binwidth=1,fill=alpha("#F4EDCA",0.2),color='black')
+
+```
+
+
+
+```{r}
+#summary(cancer_df)
+names(cancer_df)
+```
+```{r}
+j=1
+for (i in cancer_df[23,]){
+  #print(j)
+  print (c(names(cancer_df)[j],i))
+  j=j+1
+
+}
+
+```
+```{r, echo=FALSE, fig.width = 5, fig.height=5}
+ggplot(cancer_df)+geom_point(mapping=aes(PctMarriedHouseholds,PercentMarried))
+
+```
